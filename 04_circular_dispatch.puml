@@ -1,0 +1,49 @@
+@startuml
+!pragma teoz true
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName DejaVu Sans
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 25
+title Вариант 12 — кольцевой выбор заявки и сканера
+participant "SimulationEngine" as E
+participant "SelectionDispatcher" as D
+queue "SlotBuffer" as B
+participant "ScannerPool" as P
+participant "ScannerWorker" as W
+W -> E: SERVICE_FINISHED(currentJob)
+E -> P: release(workerId)
+P --> E: OK
+E -> D: dispatchOnRelease()
+loop пока есть свободный сканер и заявки в буфере
+ D -> B: takeCircular() // Д2Б3
+ note right of B
+ Начать просмотр со slotPointer,
+ взять первую занятую ячейку,
+ slotPointer = (foundIndex + 1) mod N.
+ end note
+ B --> D: job, index / EMPTY
+ alt есть job
+  D -> P: findFreeCircular() // Д2П2
+  note right of P
+ Начать поиск с devicePointer,
+ выбрать первый свободный сканер,
+ devicePointer = (foundIndex + 1) mod M.
+ end note
+  P --> D: workerId / NONE
+  alt найден свободный сканер
+   D -> P: reserve(workerId, job)
+   P --> D: OK
+   D -> W: start(job)
+   W --> D: endAt = now + Exp(lambda)
+   D -> E: scheduleCompletion(endAt)
+   E --> D: OK
+  else нет сканера
+   D -> B: restore(index, job)
+   B --> D: OK
+  end
+ else EMPTY
+  D --> E: no jobs
+ end
+end
+@enduml

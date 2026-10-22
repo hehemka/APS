@@ -1,0 +1,77 @@
+@startuml
+skinparam defaultFontName DejaVu Sans
+skinparam shadowing false
+title Вариант 12 — схема обработки событий по дорожкам
+|SimulationEngine|
+start
+:Создать источники ИБ,
+буфер N слотов, M сканеров;
+:Поставить первые ARRIVAL
+в календарь;
+while (Есть события в календаре?) is (да)
+ :Извлечь ближайшее событие;
+ :Передвинуть модельное время;
+ if (Тип события = ARRIVAL?) then (да)
+  |ScanSource|
+  :Создать задание ИЗ2;
+  :Запланировать следующий ARRIVAL
+через U(a,b);
+  |Statistics|
+  :Учесть генерацию;
+  |PlacementDispatcher|
+  :Проверить первый свободный слот Д1ОЗ3;
+  if (Слот есть?) then (да)
+   |SlotBuffer|
+   :Поместить задание в слот;
+  else (нет)
+   |SlotBuffer|
+   :Найти самое позднее размещённое
+задание Д1ОО4;
+   :Удалить его из буфера;
+   |Statistics|
+   :Учесть отказ вытесненной заявки;
+   |SlotBuffer|
+   :Поместить новое задание
+на освобождённое место;
+  endif
+  |SelectionDispatcher|
+  :Попытаться запустить задания,
+если сканер свободен;
+ else (SERVICE_FINISHED)
+  |ScannerWorker|
+  :Закончить антивирусную проверку;
+  |Statistics|
+  :Учесть завершение и загрузку;
+  |ScannerPool|
+  :Освободить сканер;
+  |SelectionDispatcher|
+  :Запустить диспетчер выбора;
+ endif
+ |SelectionDispatcher|
+ while (Есть свободный сканер И
+заявки в буфере?) is (да)
+  |SlotBuffer|
+  :Д2Б3: найти первую занятую
+ячейку от указателя по кольцу;
+  :Извлечь задание;
+  :Сдвинуть указатель буфера;
+  |ScannerPool|
+  :Д2П2: найти свободный scanner
+от указателя по кольцу;
+  :Зарезервировать scanner;
+  :Сдвинуть указатель сканеров;
+  |ScannerWorker|
+  :Начать проверку файла;
+  :Определить время Exp(lambda) ПЗ1;
+  |SimulationEngine|
+  :Запланировать SERVICE_FINISHED;
+  |SelectionDispatcher|
+ endwhile (нет)
+ |SimulationEngine|
+ :Сохранить пошаговое состояние
+и положение указателей;
+endwhile (нет)
+|Statistics|
+:Сформировать итоговую таблицу ОР1;
+stop
+@enduml

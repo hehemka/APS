@@ -1,0 +1,146 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam classAttributeIconSize 0
+left to right direction
+title Вариант 12 — классы имитационной модели
+class SimulationEngine {
+ -now: double
+ -calendar: EventCalendar
+ -placement: PlacementDispatcher
+ -selection: SelectionDispatcher
+ -statistics: Statistics
+ +run(limit: int): void
+ +step(): SimulationSnapshot
+ +onArrival(job: ScanJob): void
+ +onCompleted(event: Event): void
+ +schedule(event: Event): void
+}
+class ScanSource {
+ -id: int
+ -uniformMin: double
+ -uniformMax: double
+ -serialNo: int
+ +nextInterval(): double
+ +generate(at: double): ScanJob
+}
+class ScanJob {
+ -id: long
+ -sourceId: int
+ -fileUri: String
+ -arrivedAt: double
+ -bufferedAt: double
+ -bufferSequence: long
+ -startedAt: double
+ -finishedAt: double
+ -state: JobState
+}
+class SlotBuffer {
+ -slots: ScanJob[]
+ -selectionPointer: int
+ -sequenceCounter: long
+ +firstFreeIndex(): int
+ +put(index: int, job: ScanJob): void
+ +remove(index: int): ScanJob
+ +findLatestArrival(): int
+ +takeCircular(): SlotSelection
+ +restore(index: int, job: ScanJob): void
+ +isEmpty(): boolean
+}
+class PlacementDispatcher {
+ -buffer: SlotBuffer
+ -statistics: Statistics
+ +accept(job: ScanJob): PlacementResult
+ -evictLatest(): int
+}
+class SelectionDispatcher {
+ -buffer: SlotBuffer
+ -scannerPool: ScannerPool
+ -calendar: EventCalendar
+ +dispatchOnArrival(): void
+ +dispatchOnRelease(): void
+ -startNext(now: double): boolean
+}
+class ScannerPool {
+ -workers: List<ScannerWorker>
+ -devicePointer: int
+ +findFreeCircular(): ScannerWorker
+ +reserve(workerId: int, job: ScanJob): void
+ +release(workerId: int): void
+ +anyFree(): boolean
+}
+class ScannerWorker {
+ -id: int
+ -currentJob: ScanJob
+ -busySince: double
+ -busyDuration: double
+ -serviceRate: double
+ +isFree(): boolean
+ +start(job: ScanJob, now: double): double
+ +finish(at: double): ScanJob
+ -sampleExponential(): double
+}
+class EventCalendar {
+ -events: PriorityQueue<Event>
+ +push(event: Event): void
+ +popNext(): Event
+ +peekTime(): double
+ +isEmpty(): boolean
+}
+class Event {
+ -at: double
+ -type: EventType
+ -jobId: long
+ -workerId: int
+}
+class Statistics {
+ -generatedBySource: Map<int,int>
+ -refusedBySource: Map<int,int>
+ -waitingTimes: List<double>
+ -serviceTimes: List<double>
+ -busyByWorker: Map<int,double>
+ +onGenerated(job: ScanJob): void
+ +onQueued(job: ScanJob): void
+ +onRejected(job: ScanJob): void
+ +onStarted(job: ScanJob): void
+ +onCompleted(job: ScanJob): void
+ +summary(): Summary
+}
+class SimulationSnapshot {
+ +time: double
+ +bufferSlots: List<String>
+ +workers: List<String>
+ +bufferPointer: int
+ +workerPointer: int
+}
+enum EventType { ARRIVAL; SERVICE_FINISHED }
+enum JobState { NEW; QUEUED; RUNNING; COMPLETED; REJECTED }
+SimulationEngine *-- EventCalendar
+SimulationEngine --> PlacementDispatcher
+SimulationEngine --> SelectionDispatcher
+SimulationEngine --> Statistics
+SimulationEngine --> ScanSource
+SimulationEngine ..> SimulationSnapshot
+ScanSource ..> ScanJob : creates
+PlacementDispatcher --> SlotBuffer
+PlacementDispatcher --> Statistics
+SelectionDispatcher --> SlotBuffer
+SelectionDispatcher --> ScannerPool
+SelectionDispatcher --> EventCalendar
+SlotBuffer o-- ScanJob
+ScannerPool *-- ScannerWorker
+ScannerWorker --> ScanJob : currentJob
+EventCalendar o-- Event
+Event --> EventType
+ScanJob --> JobState
+Statistics ..> ScanJob
+note bottom of SlotBuffer
+Д1ОЗ3: первый свободный слот.
+Д1ОО4: вытеснить последнюю
+поступившую в буфер заявку.
+Д2Б3: указатель по кольцу.
+end note
+note bottom of ScannerPool
+Д2П2: циклический поиск свободного worker.
+end note
+@enduml

@@ -1,0 +1,91 @@
+@startuml
+!pragma teoz true
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName DejaVu Sans
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 25
+title Вариант 12 — обработка антивирусных заданий
+actor "Рабочая станция / шлюз" as Src
+control "Имитационная модель" as Engine
+control "Диспетчер постановки" as DP
+collections "Буфер: массив слотов" as Buffer
+control "Диспетчер выбора" as DV
+control "Пул сканеров" as Pool
+participant "Сканер" as Worker
+control "Статистика" as Stats
+note over Src,Engine
+ИБ: бесконечные источники; ИЗ2: интервалы U(a,b).
+ПЗ1: длительность сканирования Exp(lambda).
+Модель меняет время по календарю событий.
+end note
+== Поступление заявки при занятых приборах ==
+Src -> Engine: событие ARRIVAL(fileJob)
+Engine -> Stats: generated(fileJob)
+Engine -> DP: accept(fileJob)
+DP -> Buffer: firstFreeIndex()  // Д1ОЗ3
+Buffer --> DP: индекс i / нет свободных ячеек
+alt есть свободная ячейка
+ DP -> Buffer: put(i, fileJob)
+ Buffer --> DP: сохранено
+ DP --> Engine: QUEUED
+else буфер полностью заполнен
+ DP -> Buffer: findLatestArrival()  // Д1ОО4
+ Buffer --> DP: victim, index j
+ DP -> Buffer: remove(j)
+ Buffer --> DP: victim
+ DP -> Stats: rejected(victim, EVICTED)
+ DP -> Buffer: put(j, fileJob)
+ Buffer --> DP: сохранено
+ DP --> Engine: QUEUED_AFTER_EVICTION
+end
+note over DP,Worker
+Сканеры не отказывают: они свободны или заняты.
+Отказ возникает только при переполненном буфере.
+end note
+== Освобождение сканера и выбор из очереди ==
+Worker -> Engine: событие SERVICE_FINISHED(doneJob)
+Engine -> Stats: completed(doneJob, finishTime)
+Engine -> Pool: release(workerId)
+Pool --> Engine: scannerAvailable
+Engine -> DV: dispatchOnRelease()
+DV -> Buffer: takeFromCircularPointer()  // Д2Б3
+Buffer --> DV: job / empty, slotIndex
+alt в буфере есть задание
+ DV -> Pool: findFreeCircular()  // Д2П2
+ Pool --> DV: scannerId / none
+ alt свободный сканер найден
+  DV -> Pool: reserve(scannerId, job)
+  Pool --> DV: reserved
+  DV -> Worker: startScan(job)
+  Worker --> DV: endTime = now + Exp(lambda)
+  DV -> Engine: schedule(SERVICE_FINISHED, endTime)
+  Engine --> DV: scheduled
+ else свободного сканера нет
+  DV -> Buffer: restore(slotIndex, job)
+  Buffer --> DV: restored
+ end
+else буфер пуст
+ DV --> Engine: NO_PENDING_JOB
+end
+== Новая заявка при свободном приборе (Happy Flow) ==
+Src -> Engine: событие ARRIVAL(nextJob)
+Engine -> Stats: generated(nextJob)
+Engine -> DP: accept(nextJob)
+DP -> Buffer: firstFreeIndex()
+Buffer --> DP: индекс k
+DP -> Buffer: put(k, nextJob)
+Buffer --> DP: сохранено
+DP --> Engine: QUEUED
+Engine -> DV: dispatchOnArrival()  // прибор свободен
+DV -> Buffer: takeFromCircularPointer()  // Д2Б3
+Buffer --> DV: nextJob, index k
+DV -> Pool: findFreeCircular()  // Д2П2
+Pool --> DV: scannerId
+DV -> Pool: reserve(scannerId, nextJob)
+Pool --> DV: reserved
+DV -> Worker: startScan(nextJob)
+Worker --> DV: endTime
+DV -> Engine: schedule(SERVICE_FINISHED, endTime)
+Engine --> DV: scheduled
+@enduml

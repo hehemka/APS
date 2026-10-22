@@ -1,0 +1,38 @@
+@startuml
+!pragma teoz true
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName DejaVu Sans
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 25
+title Вариант 12 — Happy Flow
+actor "Источник" as S
+participant "SimulationEngine" as E
+participant "PlacementDispatcher" as P
+queue "SlotBuffer" as B
+participant "SelectionDispatcher" as D
+participant "ScannerPool" as Q
+participant "ScannerWorker" as W
+S -> E: ARRIVAL(job); next arrival ~ U(a,b)
+E -> P: accept(job)
+P -> B: firstFreeIndex()  // Д1ОЗ3
+B --> P: slot 0
+P -> B: put(0, job)
+B --> P: OK
+P --> E: QUEUED
+E -> D: dispatchOnArrival()
+D -> B: takeCircular()  // Д2Б3
+B --> D: job
+D -> Q: findFreeCircular()  // Д2П2
+Q --> D: worker
+D -> Q: reserve(worker, job)
+Q --> D: OK
+D -> W: start(job)
+W --> D: endAt = now + Exp(lambda) // ПЗ1
+D -> E: scheduleCompletion(worker, endAt)
+E --> D: OK
+... событие завершения ...
+W -> E: SERVICE_FINISHED(job)
+E -> Q: release(worker)
+Q --> E: OK
+@enduml

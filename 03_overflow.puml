@@ -1,0 +1,29 @@
+@startuml
+!pragma teoz true
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName DejaVu Sans
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 25
+title Вариант 12 — переполнение буфера
+actor "Источник" as S
+participant "Диспетчер постановки" as DP
+queue "Буфер" as B
+participant "Статистика" as ST
+S -> DP: accept(newJob)
+DP -> B: firstFreeIndex() // Д1ОЗ3
+B --> DP: None (все слоты заняты)
+DP -> B: findLatestArrival() // Д1ОО4
+B --> DP: victim, slotIndex
+note right of B
+Выбирается самая поздняя ПОСТАВЛЕННАЯ
+в буфер заявка (не самая новая по ID).
+При совпадении времени — max(sequenceNo).
+end note
+DP -> B: remove(slotIndex)
+B --> DP: victim
+DP -> ST: recordRefusal(victim, EVICTED)
+DP -> B: put(slotIndex, newJob)
+B --> DP: OK
+DP --> S: newJob accepted
+@enduml
