@@ -22,18 +22,18 @@
 ## Схемы
 
 **Основной сценарий:** поступление задания, переполнение буфера, освобождение сканера и передача на проверку.  
-[Исходник](uml/sequence/01_full_scenario.puml) · [Обзор](preview/01_full_scenario.svg)
+[Исходник](01_full_scenario.puml) · [Обзор](01_full_scenario.svg)
 
 **Обычная обработка:** свободный сканер, без вытеснения.  
-[Исходник](uml/sequence/02_happy_path.puml) · [Обзор](preview/02_happy_path.svg)
+[Исходник](02_happy_path.puml) · [Обзор](02_happy_path.svg)
 
 **Переполнение:** замена последней размещённой заявки новой.  
-[Исходник](uml/sequence/03_overflow.puml) · [Обзор](preview/03_overflow.svg)
+[Исходник](03_overflow.puml) · [Обзор](03_overflow.svg)
 
 **Кольцевой выбор:** отдельно показано движение указателей буфера и сканеров.  
-[Исходник](uml/sequence/04_circular_dispatch.puml) · [Обзор](preview/04_circular_dispatch.svg)
+[Исходник](04_circular_dispatch.puml) · [Обзор](04_circular_dispatch.svg)
 
-**Структура классов:** [PlantUML](uml/structure/domain_classes.puml) · [Обзор](preview/domain_classes.svg)  
-**Алгоритм с дорожками:** [PlantUML](uml/process/event_flow_swimlanes.puml) · [Обзор](preview/event_flow_swimlanes.svg)
+**Структура классов:** [PlantUML](domain_classes.puml) · [Обзор](domain_classes.svg)  
+**Алгоритм с дорожками:** [PlantUML](event_flow_swimlanes.puml) · [Обзор](event_flow_swimlanes.svg)
 
 При одновременных событиях сначала завершается обслуживание, затем обрабатываются новые поступления. Если несколько заданий имеют одинаковое время размещения, при вытеснении выбирается записанное позже (по порядковому номеру записи). На новое поступление диспетчер сначала помещает заявку в буфер, затем при наличии свободного сканера запускает выбор из очереди: поэтому кольцевой порядок выбора сохраняется и при свободном сканере.
